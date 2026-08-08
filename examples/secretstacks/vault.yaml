@@ -1,0 +1,25 @@
+apiVersion: hops.ops.com.ai/v1alpha1
+kind: SecretStack
+metadata:
+  name: external-secrets
+  namespace: default
+spec:
+  clusterName: dory
+  backend: vault
+  namespace: external-secrets
+  labels:
+    team: platform
+  secretStore:
+    enabled: true
+    scope: Cluster
+    name: vault
+  vault:
+    install: true
+    namespace: vault
+    # server defaults to http://vault.vault.svc.cluster.local:8200 when install=true
+    path: secret
+    version: v2
+    auth:
+      method: kubernetes
+      mountPath: kubernetes
+      role: external-secrets

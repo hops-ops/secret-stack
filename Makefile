@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-PACKAGE ?= aws-secret-stack
+PACKAGE ?= secret-stack
 XRD_DIR := apis/secretstacks
 COMPOSITION := $(XRD_DIR)/composition.yaml
 DEFINITION := $(XRD_DIR)/definition.yaml
@@ -26,8 +26,12 @@ generate-configuration:
 EXAMPLES := \
     examples/secretstacks/minimal.yaml:: \
     examples/secretstacks/standard.yaml:: \
+    examples/secretstacks/vault.yaml:: \
+    examples/secretstacks/vault-external.yaml:: \
     examples/secretstacks/standard.yaml::examples/test/mocks/observed-resources/standard/steps/1/ \
-    examples/secretstacks/standard.yaml::examples/test/mocks/observed-resources/standard/steps/2/
+    examples/secretstacks/standard.yaml::examples/test/mocks/observed-resources/standard/steps/2/ \
+    examples/secretstacks/vault.yaml::examples/test/mocks/observed-resources/vault/steps/1/ \
+    examples/secretstacks/vault.yaml::examples/test/mocks/observed-resources/vault/steps/2/
 
 # Render all examples (parallel execution, output shown per-job when complete)
 render\:all:

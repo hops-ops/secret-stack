@@ -1,10 +1,11 @@
-apiVersion: aws.hops.ops.com.ai/v1alpha1
+apiVersion: hops.ops.com.ai/v1alpha1
 kind: SecretStack
 metadata:
   name: external-secrets
   namespace: default
 spec:
   clusterName: production-cluster
+  backend: aws
   namespace: external-secrets
   labels:
     team: platform

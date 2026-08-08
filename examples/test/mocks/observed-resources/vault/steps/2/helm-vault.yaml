@@ -1,9 +1,9 @@
 apiVersion: helm.m.crossplane.io/v1beta1
 kind: Release
 metadata:
-  name: external-secrets
+  name: vault
   annotations:
-    crossplane.io/composition-resource-name: helm-external-secrets
+    crossplane.io/composition-resource-name: helm-vault
 status:
   atProvider:
     revision: 1

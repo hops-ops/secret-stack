@@ -4,8 +4,20 @@
 #
 
 {{- $xr := getCompositeResource . }}
+{{- $s := $state.status }}
 ---
 apiVersion: {{ $xr.apiVersion }}
 kind: {{ $xr.kind }}
 status:
-  ready: {{ $state.status.ready }}
+  ready: {{ $s.ready }}
+  backend: {{ $s.backend }}
+  secretStore:
+    name: {{ $s.secretStore.name }}
+    scope: {{ $s.secretStore.scope }}
+    ready: {{ $s.secretStore.ready }}
+  {{- if $s.vault }}
+  vault:
+    releaseName: {{ $s.vault.releaseName }}
+    namespace: {{ $s.vault.namespace }}
+    ready: {{ $s.vault.ready }}
+  {{- end }}

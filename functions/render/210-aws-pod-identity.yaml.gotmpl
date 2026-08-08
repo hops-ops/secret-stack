@@ -1,7 +1,10 @@
 # code: language=yaml
 #
-# AWS Pod Identity for external-secrets Secrets Manager and SSM Parameter Store access
+# AWS Pod Identity for external-secrets Secrets Manager and SSM Parameter Store access.
+# Only rendered when backend=aws.
 #
+
+{{- if $state.aws.enabled }}
 
 ---
 apiVersion: aws.hops.ops.com.ai/v1alpha1
@@ -70,11 +73,7 @@ spec:
         }
   tags: {{ $state.aws.tags | toJson }}
 
-# ==============================================================================
 # Usage: Protect PodIdentity from deletion until Helm release is deleted
-# ==============================================================================
-# external-secrets pods depend on the PodIdentity for AWS credentials.
-# Deleting PodIdentity first would break external-secrets' ability to sync secrets.
 {{- if and $state.observed.helmExternalSecrets.ready $state.observed.podIdentity.ready }}
 ---
 apiVersion: protection.crossplane.io/v1beta1
@@ -96,4 +95,6 @@ spec:
     resourceRef:
       name: {{ $state.helm.releaseName }}
   replayDeletion: true
+{{- end }}
+
 {{- end }}

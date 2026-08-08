@@ -29,8 +29,12 @@ jobs:
         [
           { "example": "examples/secretstacks/minimal.yaml" },
           { "example": "examples/secretstacks/standard.yaml" },
+          { "example": "examples/secretstacks/vault.yaml" },
+          { "example": "examples/secretstacks/vault-external.yaml" },
           { "example": "examples/secretstacks/standard.yaml", "observed_resources": "examples/test/mocks/observed-resources/standard/steps/1/" },
-          { "example": "examples/secretstacks/standard.yaml", "observed_resources": "examples/test/mocks/observed-resources/standard/steps/2/" }
+          { "example": "examples/secretstacks/standard.yaml", "observed_resources": "examples/test/mocks/observed-resources/standard/steps/2/" },
+          { "example": "examples/secretstacks/vault.yaml", "observed_resources": "examples/test/mocks/observed-resources/vault/steps/1/" },
+          { "example": "examples/secretstacks/vault.yaml", "observed_resources": "examples/test/mocks/observed-resources/vault/steps/2/" }
         ]
       api_path: apis/secretstacks
       error_on_missing_schemas: true
@@ -55,7 +59,7 @@ jobs:
         }
       debug-resource-types: |
         [
-          "secretstacks.aws.hops.ops.com.ai"
+          "secretstacks.hops.ops.com.ai"
         ]
       delete-extra-resources: |
         [

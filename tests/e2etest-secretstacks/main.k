@@ -1,11 +1,11 @@
-# e2etest-secretstacks - aws SecretStack E2E Test
-# ================================================
+# e2etest-secretstacks - platform SecretStack E2E Test (AWS backend)
+# ==================================================================
 # Tests installation of external-secrets with AWS Pod Identity
-# and ClusterSecretStore.
+# and ClusterSecretStore (backend=aws).
 #
 # This test creates:
 # 1. An AutoEKSCluster using subnet IDs from the persistent hops-test network
-# 2. An aws SecretStack that composes:
+# 2. A SecretStack that composes:
 #    - helm.m.crossplane.io/Release (external-secrets Helm release)
 #    - aws.hops.ops.com.ai/PodIdentity (IAM role + Pod Identity for Secrets Manager/SSM)
 #    - kubernetes.m.crossplane.io/Object (SecretStore)
@@ -30,7 +30,6 @@ import file
 import datetime
 import math
 import models.io.upbound.dev.meta.v1alpha1 as metav1alpha1
-import models.ai.com.ops.hops.aws.v1alpha1 as awsv1alpha1
 
 # Read AWS credentials from local file (gitignored)
 _creds = file.read("secrets/aws-creds")
@@ -232,18 +231,25 @@ _items = [
             # manifests: SecretStack only — deleted during normal cleanup
             # Note: Uses persistent hops-test network - no Network manifest needed
             manifests = [
-                awsv1alpha1.SecretStack {
-                    metadata.name = "external-secrets"
-                    metadata.namespace = _namespace
+                {
+                    apiVersion = "hops.ops.com.ai/v1alpha1"
+                    kind = "SecretStack"
+                    metadata = {
+                        name = "external-secrets"
+                        namespace = _namespace
+                    }
                     spec = {
                         clusterName = _test_name
+                        backend = "aws"
                         # helmProviderConfigRef defaults to clusterName (uses ProviderConfig created by AutoEKSCluster)
                         # awsProviderConfigRef defaults to "default"
                         # kubernetesProviderConfigRef defaults to clusterName
                         secretStore = {
                             scope = "Cluster"
                         }
-                        aws.region = _region
+                        aws = {
+                            region = _region
+                        }
                     }
                 }
             ]
