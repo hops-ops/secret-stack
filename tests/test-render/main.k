@@ -89,6 +89,16 @@ _items = [
                     spec.forProvider = {
                         chart.name = "vault"
                         namespace = "vault"
+                        values.server = {
+                            authDelegator.enabled = True
+                            extraEnvironmentVars = {
+                                HOPS_VAULT_AUTH_MOUNT_PATH = "kubernetes"
+                                HOPS_VAULT_AUTH_ROLE = "external-secrets"
+                                HOPS_VAULT_ESO_NAMESPACE = "external-secrets"
+                                HOPS_VAULT_ESO_SERVICE_ACCOUNT = "external-secrets"
+                                HOPS_VAULT_PATH = "secret"
+                            }
+                        }
                     }
                 }
             ]

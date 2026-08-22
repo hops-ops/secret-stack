@@ -205,6 +205,11 @@ spec:
                           namespace:
                             description: Namespace of the token secret. Defaults to the ESO namespace.
                             type: string
+            x-kubernetes-validations:
+            - rule: "self.backend != 'aws' || (has(self.aws) && has(self.aws.region) && self.aws.region != '')"
+              message: "backend=aws requires spec.aws.region"
+            - rule: "self.backend != 'vault' || (has(self.vault) && ((has(self.vault.install) && self.vault.install) || (has(self.secretStore) && has(self.secretStore.enabled) && !self.secretStore.enabled) || (has(self.vault.server) && self.vault.server != '')))"
+              message: "backend=vault with vault.install=false requires spec.vault.server when the SecretStore is enabled"
             required:
             - clusterName
           status:

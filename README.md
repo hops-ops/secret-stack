@@ -51,6 +51,12 @@ spec:
       role: external-secrets
 ```
 
+The default dev-mode Vault install bootstraps the Kubernetes auth method,
+cluster connection, policy, and ESO role before the Vault pod becomes Ready.
+If `vault.values` or `vault.overrideAllValues` disables dev mode for an HA or
+production deployment, configure Vault authentication externally; Hops does not
+assume or synthesize production administrator credentials.
+
 ### External Vault (token auth)
 
 ```yaml

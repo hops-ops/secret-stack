@@ -1,0 +1,8 @@
+apiVersion: hops.ops.com.ai/v1alpha1
+kind: SecretStack
+metadata:
+  name: invalid-aws
+  namespace: default
+spec:
+  clusterName: test
+  backend: aws

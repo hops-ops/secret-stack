@@ -1,0 +1,12 @@
+apiVersion: hops.ops.com.ai/v1alpha1
+kind: SecretStack
+metadata:
+  name: invalid-vault
+  namespace: default
+spec:
+  clusterName: test
+  backend: vault
+  vault:
+    install: false
+    auth:
+      method: token

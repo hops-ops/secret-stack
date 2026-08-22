@@ -100,7 +100,7 @@ validate\:all: generate-configuration
 	exit $$failed
 
 # Shorthand aliases
-.PHONY: render validate generate-configuration
+.PHONY: render validate generate-configuration test test-review e2e
 render: ; @$(MAKE) 'render:all'
 validate: ; @$(MAKE) generate-configuration 'validate:all'
 
@@ -117,6 +117,9 @@ validate\:%: generate-configuration
 
 test:
 	up test run $(RENDER_TESTS)
+
+test-review:
+	./tests/review-findings.sh
 
 e2e:
 	up test run $(E2E_TESTS) --e2e

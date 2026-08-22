@@ -42,6 +42,26 @@ jobs:
   test:
     uses: unbounded-tech/workflows-crossplane/.github/workflows/test.yaml@v3.0.0
 
+  review-findings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install up
+        uses: upbound/action-up@v1.0.0
+        with:
+          skip-login: true
+      - name: Build project
+        uses: upbound/action-up-project@v1.1.2
+        with:
+          skip-login-check: true
+      - name: Install Crossplane CLI
+        run: |
+          curl -sL https://cli.crossplane.io/install.sh | XP_VERSION=v2.4.1 sh
+          sudo mv crossplane /usr/local/bin/crossplane
+      - name: Verify review findings
+        run: tests/review-findings.sh
+
   e2e:
     uses: unbounded-tech/workflows-crossplane/.github/workflows/e2e.yaml@v3.0.0
     with:
@@ -74,6 +94,7 @@ jobs:
     needs:
       - validate
       - test
+      - review-findings
       - e2e
     uses: unbounded-tech/workflow-vnext-tag/.github/workflows/workflow.yaml@v1.21.3
     secrets:
