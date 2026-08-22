@@ -88,6 +88,10 @@
 # SecretStore
 # ==============================================================================
 {{- $secretStoreSpec := $spec.secretStore | default dict }}
+{{- $secretStoreEnabled := true }}
+{{- if hasKey $secretStoreSpec "enabled" }}
+  {{- $secretStoreEnabled = $secretStoreSpec.enabled }}
+{{- end }}
 
 # ==============================================================================
 # Initialize $state
@@ -137,7 +141,7 @@
     "overrideAllValues" ($vault.overrideAllValues | default dict)
   )
   "secretStore" (dict
-    "enabled" ($secretStoreSpec.enabled | default true)
+    "enabled" $secretStoreEnabled
     "scope" ($secretStoreSpec.scope | default "Namespaced")
     "name" ($secretStoreSpec.name | default "default")
   )
