@@ -1,9 +1,6 @@
 # Build output
 _output/
 .up/
-**/target/
-
-# Rust experimental compose crate lock is fine to commit; ignore build dir only
 
 # Virtual environments
 .venv/

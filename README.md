@@ -104,17 +104,6 @@ make validate    # validate rendered output
 make test        # run KCL unit tests
 ```
 
-### Experimental: Rust layered-gate compose
-
-A prototype re-expresses this stack’s render graph (existence gates + Ready
-Usages) in Rust. Production still uses `functions/render/*.gotmpl`.
-
-```bash
-cd experimental/rust-compose && cargo test
-```
-
-See [experimental/rust-compose/README.md](experimental/rust-compose/README.md).
-
 ### Local install (source)
 
 ```bash
