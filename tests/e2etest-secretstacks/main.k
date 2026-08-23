@@ -216,7 +216,7 @@ _items = [
                         tags = {
                             "e2etest" = "true"
                             "test-run" = _now
-                            "repo": "https://github.com/hops-ops/aws-secret-stack"
+                            "repo": "https://github.com/hops-ops/secret-stack"
                         }
                         publicAccess = True
                         nodeConfig = {
