@@ -1,10 +1,8 @@
 apiVersion: hops.ops.com.ai/v1alpha1
 kind: SecretStack
 metadata:
-  name: external-secrets
+  name: invalid-aws
   namespace: default
 spec:
-  clusterName: my-cluster
+  clusterName: test
   backend: aws
-  aws:
-    region: us-east-1

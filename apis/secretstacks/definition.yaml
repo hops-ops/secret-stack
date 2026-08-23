@@ -1,9 +1,9 @@
 apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
-  name: secretstacks.aws.hops.ops.com.ai
+  name: secretstacks.hops.ops.com.ai
 spec:
-  group: aws.hops.ops.com.ai
+  group: hops.ops.com.ai
   names:
     kind: SecretStack
     plural: secretstacks
@@ -15,7 +15,10 @@ spec:
     served: true
     schema:
       openAPIV3Schema:
-        description: SecretStack installs external-secrets with AWS Pod Identity for Secrets Manager and SSM Parameter Store access.
+        description: |
+          SecretStack installs External Secrets Operator and wires a SecretStore
+          to either AWS Secrets Manager or HashiCorp Vault. Platform-neutral
+          (hops.ops.com.ai). Backend-specific resources are gated by spec.backend.
         type: object
         properties:
           spec:
@@ -25,6 +28,16 @@ spec:
               clusterName:
                 description: Name of the target cluster. Used for provider config defaults and resource naming.
                 type: string
+              backend:
+                description: |
+                  Secrets backend for the SecretStore. "aws" creates PodIdentity +
+                  AWS Secrets Manager SecretStore. "vault" creates a Vault
+                  SecretStore and optionally installs Vault via Helm.
+                type: string
+                enum:
+                - aws
+                - vault
+                default: aws
               managementPolicies:
                 description: Management policies for all composed resources. Defaults to ["*"].
                 type: array
@@ -51,30 +64,6 @@ spec:
                     enum:
                     - ProviderConfig
                     - ClusterProviderConfig
-              awsProviderConfigRef:
-                description: Reference to the AWS ProviderConfig. Defaults to "default".
-                type: object
-                properties:
-                  name:
-                    description: Name of the AWS ProviderConfig.
-                    type: string
-                  kind:
-                    description: Kind of the ProviderConfig. Defaults to ProviderConfig.
-                    type: string
-              namespace:
-                description: Namespace for the Helm release. Defaults to external-secrets.
-                type: string
-              name:
-                description: Helm release name. Defaults to the XR metadata.name.
-                type: string
-              values:
-                description: Helm values merged with defaults.
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
-              overrideAllValues:
-                description: Helm values that replace all defaults.
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               kubernetesProviderConfigRef:
                 description: Reference to the Kubernetes ProviderConfig for creating Object resources. Defaults to clusterName.
                 type: object
@@ -88,8 +77,32 @@ spec:
                     enum:
                     - ProviderConfig
                     - ClusterProviderConfig
+              awsProviderConfigRef:
+                description: Reference to the AWS ProviderConfig. Used when backend=aws. Defaults to "default".
+                type: object
+                properties:
+                  name:
+                    description: Name of the AWS ProviderConfig.
+                    type: string
+                  kind:
+                    description: Kind of the ProviderConfig. Defaults to ProviderConfig.
+                    type: string
+              namespace:
+                description: Namespace for the external-secrets Helm release. Defaults to external-secrets.
+                type: string
+              name:
+                description: Helm release name for external-secrets. Defaults to "external-secrets".
+                type: string
+              values:
+                description: external-secrets Helm values merged with defaults.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              overrideAllValues:
+                description: external-secrets Helm values that replace all defaults.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               secretStore:
-                description: ESO SecretStore configuration. Creates a ClusterSecretStore or namespaced SecretStore pointing to AWS Secrets Manager.
+                description: ESO SecretStore configuration. Provider block is derived from backend.
                 type: object
                 properties:
                   enabled:
@@ -105,11 +118,11 @@ spec:
                     description: Name of the SecretStore resource. Defaults to "default".
                     type: string
               aws:
-                description: AWS configuration for Pod Identity.
+                description: AWS configuration. Required when backend=aws (region).
                 type: object
                 properties:
                   region:
-                    description: AWS region for the EKS cluster.
+                    description: AWS region for the EKS cluster and Secrets Manager.
                     type: string
                   permissionsBoundaryArn:
                     description: ARN of the IAM permissions boundary to apply to the role.
@@ -123,17 +136,108 @@ spec:
                     additionalProperties:
                       type: string
                     x-kubernetes-preserve-unknown-fields: true
-                required:
-                - region
+              vault:
+                description: Vault configuration. Used when backend=vault.
+                type: object
+                properties:
+                  install:
+                    description: |
+                      Install HashiCorp Vault via Helm in-cluster. Defaults to false.
+                      When true, deploys the official vault chart (dev-friendly defaults;
+                      override via values for HA/production).
+                    type: boolean
+                  namespace:
+                    description: Namespace for the Vault Helm release. Defaults to "vault".
+                    type: string
+                  releaseName:
+                    description: Vault Helm release name. Defaults to "vault".
+                    type: string
+                  values:
+                    description: Vault Helm values merged with defaults (only when install=true).
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  overrideAllValues:
+                    description: Vault Helm values that replace all defaults (only when install=true).
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  server:
+                    description: |
+                      Vault server URL for the SecretStore. Defaults to
+                      http://vault.vault.svc.cluster.local:8200 when install=true,
+                      otherwise required for SecretStore.
+                    type: string
+                  path:
+                    description: Vault KV secrets engine mount path. Defaults to "secret".
+                    type: string
+                  version:
+                    description: Vault KV engine version. Defaults to "v2".
+                    type: string
+                    enum:
+                    - v1
+                    - v2
+                  auth:
+                    description: |
+                      Vault auth for ESO. Prefer kubernetes (SA JWT) in-cluster;
+                      use tokenSecretRef for local/dev bootstrap.
+                    type: object
+                    properties:
+                      method:
+                        description: Auth method. Defaults to kubernetes when install=true, else token.
+                        type: string
+                        enum:
+                        - kubernetes
+                        - token
+                      mountPath:
+                        description: Vault auth mount path. Defaults to "kubernetes" (k8s method) or unused for token.
+                        type: string
+                      role:
+                        description: Vault role for kubernetes auth. Defaults to "external-secrets".
+                        type: string
+                      tokenSecretRef:
+                        description: K8s Secret holding a Vault token (auth.method=token).
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          key:
+                            type: string
+                            default: token
+                          namespace:
+                            description: Namespace of the token secret. Defaults to the ESO namespace.
+                            type: string
+            x-kubernetes-validations:
+            - rule: "self.backend != 'aws' || (has(self.aws) && has(self.aws.region) && self.aws.region != '')"
+              message: "backend=aws requires spec.aws.region"
+            - rule: "self.backend != 'vault' || (has(self.vault) && ((has(self.vault.install) && self.vault.install) || (has(self.secretStore) && has(self.secretStore.enabled) && !self.secretStore.enabled) || (has(self.vault.server) && self.vault.server != '')))"
+              message: "backend=vault with vault.install=false requires spec.vault.server when the SecretStore is enabled"
             required:
             - clusterName
-            - aws
           status:
             description: SecretStackStatus defines the observed state.
             type: object
             properties:
-              ready:
-                description: Overall readiness.
-                type: boolean
+              backend:
+                description: Active secrets backend.
+                type: string
+              secretStore:
+                description: Observed SecretStore identity.
+                type: object
+                properties:
+                  name:
+                    type: string
+                  scope:
+                    type: string
+                  ready:
+                    type: boolean
+              vault:
+                description: Observed Vault release (when vault.install).
+                type: object
+                properties:
+                  releaseName:
+                    type: string
+                  namespace:
+                    type: string
+                  ready:
+                    type: boolean
         required:
         - spec

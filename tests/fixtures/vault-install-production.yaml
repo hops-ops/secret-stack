@@ -1,0 +1,18 @@
+apiVersion: hops.ops.com.ai/v1alpha1
+kind: SecretStack
+metadata:
+  name: external-secrets
+  namespace: default
+spec:
+  clusterName: my-cluster
+  backend: vault
+  secretStore:
+    enabled: false
+  vault:
+    install: true
+    values:
+      server:
+        dev:
+          enabled: false
+        standalone:
+          enabled: true

@@ -14,6 +14,7 @@
 {{- $clusterName := $spec.clusterName | default $name }}
 {{- $namespace := $spec.namespace | default "external-secrets" }}
 {{- $managementPolicies := $spec.managementPolicies | default (list "*") }}
+{{- $backend := $spec.backend | default "aws" }}
 
 # Labels
 {{- $defaultLabels := dict
@@ -44,46 +45,103 @@
 }}
 
 # ==============================================================================
-# AWS defaults
+# Backend: AWS
 # ==============================================================================
 {{- $aws := $spec.aws | default dict }}
-{{- $awsRegion := $aws.region }}
-
-# Default tags
+{{- $awsRegion := $aws.region | default "" }}
 {{- $defaultTags := dict
   "hops.ops.com.ai/managed" "true"
   (printf "hops.ops.com.ai/%s" (lower $xr.kind)) $name
 }}
 {{- $awsTags := merge $defaultTags ($aws.tags | default dict) }}
+{{- $awsEnabled := eq $backend "aws" }}
+
+# ==============================================================================
+# Backend: Vault
+# ==============================================================================
+{{- $vault := $spec.vault | default dict }}
+{{- $vaultInstall := $vault.install | default false }}
+{{- $vaultNamespace := $vault.namespace | default "vault" }}
+{{- $vaultReleaseName := $vault.releaseName | default "vault" }}
+{{- $vaultDefaultServer := printf "http://%s.%s.svc.cluster.local:8200" $vaultReleaseName $vaultNamespace }}
+{{- $vaultServer := $vault.server | default "" }}
+{{- if and (eq $vaultServer "") $vaultInstall }}
+  {{- $vaultServer = $vaultDefaultServer }}
+{{- end }}
+{{- $vaultPath := $vault.path | default "secret" }}
+{{- $vaultVersion := $vault.version | default "v2" }}
+{{- $vaultAuth := $vault.auth | default dict }}
+{{- $vaultAuthMethod := $vaultAuth.method | default "" }}
+{{- if eq $vaultAuthMethod "" }}
+  {{- if $vaultInstall }}
+    {{- $vaultAuthMethod = "kubernetes" }}
+  {{- else }}
+    {{- $vaultAuthMethod = "token" }}
+  {{- end }}
+{{- end }}
+{{- $vaultAuthMountPath := $vaultAuth.mountPath | default "kubernetes" }}
+{{- $vaultAuthRole := $vaultAuth.role | default "external-secrets" }}
+{{- $tokenSecretRef := $vaultAuth.tokenSecretRef | default dict }}
+{{- $vaultEnabled := eq $backend "vault" }}
+
+# ==============================================================================
+# SecretStore
+# ==============================================================================
+{{- $secretStoreSpec := $spec.secretStore | default dict }}
+{{- $secretStoreEnabled := true }}
+{{- if hasKey $secretStoreSpec "enabled" }}
+  {{- $secretStoreEnabled = $secretStoreSpec.enabled }}
+{{- end }}
 
 # ==============================================================================
 # Initialize $state
 # ==============================================================================
-{{- $secretStoreSpec := $spec.secretStore | default dict }}
-
 {{- $state := dict
   "name" $name
   "clusterName" $clusterName
   "namespace" $namespace
   "managementPolicies" $managementPolicies
   "labels" $labels
+  "backend" $backend
   "helm" (dict
     "providerConfigRef" $helmProviderConfigRef
-    "releaseName" "external-secrets"
+    "releaseName" ($spec.name | default "external-secrets")
     "namespace" $namespace
     "values" ($spec.values | default dict)
     "overrideAllValues" ($spec.overrideAllValues | default dict)
   )
   "kubernetesProviderConfigRef" $k8sProviderConfigRef
   "aws" (dict
+    "enabled" $awsEnabled
     "region" $awsRegion
     "providerConfigRef" $awsProviderConfigRef
     "permissionsBoundaryArn" ($aws.permissionsBoundaryArn | default "")
     "rolePrefix" ($aws.rolePrefix | default "")
     "tags" $awsTags
   )
+  "vault" (dict
+    "enabled" $vaultEnabled
+    "install" (and $vaultEnabled $vaultInstall)
+    "namespace" $vaultNamespace
+    "releaseName" $vaultReleaseName
+    "server" $vaultServer
+    "path" $vaultPath
+    "version" $vaultVersion
+    "auth" (dict
+      "method" $vaultAuthMethod
+      "mountPath" $vaultAuthMountPath
+      "role" $vaultAuthRole
+      "tokenSecretRef" (dict
+        "name" ($tokenSecretRef.name | default "vault-token")
+        "key" ($tokenSecretRef.key | default "token")
+        "namespace" ($tokenSecretRef.namespace | default $namespace)
+      )
+    )
+    "values" ($vault.values | default dict)
+    "overrideAllValues" ($vault.overrideAllValues | default dict)
+  )
   "secretStore" (dict
-    "enabled" ($secretStoreSpec.enabled | default true)
+    "enabled" $secretStoreEnabled
     "scope" ($secretStoreSpec.scope | default "Namespaced")
     "name" ($secretStoreSpec.name | default "default")
   )

@@ -1,0 +1,23 @@
+apiVersion: hops.ops.com.ai/v1alpha1
+kind: SecretStack
+metadata:
+  name: external-secrets
+  namespace: default
+spec:
+  clusterName: my-cluster
+  backend: vault
+  namespace: external-secrets
+  secretStore:
+    enabled: true
+    scope: Namespaced
+    name: vault
+  vault:
+    install: false
+    server: https://vault.example.com:8200
+    path: secret
+    version: v2
+    auth:
+      method: token
+      tokenSecretRef:
+        name: vault-token
+        key: token

@@ -1,7 +1,8 @@
 apiVersion: aws.hops.ops.com.ai/v1alpha1
 kind: PodIdentity
 metadata:
-  name: external-secrets
+  name: external-secrets-external-secrets
+  namespace: default
   annotations:
     crossplane.io/composition-resource-name: pod-identity
 status:

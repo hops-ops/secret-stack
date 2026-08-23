@@ -1,0 +1,114 @@
+# code: language=yaml
+#
+# Optional HashiCorp Vault Helm release (backend=vault + vault.install=true)
+#
+# Chart name/repository/version are literals for Renovate detection.
+# Defaults are local/dev-friendly (standalone + injector off); override via
+# vault.values / vault.overrideAllValues for production HA.
+#
+
+{{- if $state.vault.install }}
+
+{{- /*
+Default dev mode has a known root token, so the chart-supported postStart hook
+can idempotently bootstrap Kubernetes auth before the Vault pod becomes Ready.
+Non-dev/HA overrides intentionally receive no bootstrap: production operators
+must configure Vault with externally managed administrator credentials.
+*/}}
+{{- $vaultBootstrapScript := `
+set -eu
+export VAULT_ADDR="http://127.0.0.1:8200"
+export VAULT_TOKEN="${VAULT_DEV_ROOT_TOKEN_ID:-root}"
+
+until vault status >/dev/null 2>&1; do
+  sleep 1
+done
+
+if ! vault auth list -format=json | grep -q "\"${HOPS_VAULT_AUTH_MOUNT_PATH}/\""; then
+  vault auth enable -path="${HOPS_VAULT_AUTH_MOUNT_PATH}" kubernetes
+fi
+
+vault write "auth/${HOPS_VAULT_AUTH_MOUNT_PATH}/config" \
+  kubernetes_host="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}"
+
+vault policy write "${HOPS_VAULT_AUTH_ROLE}" - <<EOF
+path "${HOPS_VAULT_PATH}/data/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+path "${HOPS_VAULT_PATH}/metadata/*" {
+  capabilities = ["read", "delete", "list"]
+}
+path "${HOPS_VAULT_PATH}/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+EOF
+
+vault write "auth/${HOPS_VAULT_AUTH_MOUNT_PATH}/role/${HOPS_VAULT_AUTH_ROLE}" \
+  bound_service_account_names="${HOPS_VAULT_ESO_SERVICE_ACCOUNT}" \
+  bound_service_account_namespaces="${HOPS_VAULT_ESO_NAMESPACE}" \
+  policies="${HOPS_VAULT_AUTH_ROLE}" \
+  ttl="24h"
+` | trim }}
+
+{{- $chartDefaults := dict
+  "global" (dict "enabled" true "tlsDisable" true)
+  "injector" (dict "enabled" false)
+  "server" (dict
+    "dev" (dict "enabled" true)
+    "standalone" (dict "enabled" true)
+    "dataStorage" (dict "enabled" false)
+    "resources" (dict
+      "requests" (dict "cpu" "50m" "memory" "128Mi")
+      "limits" (dict "cpu" "500m" "memory" "512Mi")
+    )
+  )
+  "ui" (dict "enabled" true)
+}}
+{{- $mergedValues := mergeOverwrite $chartDefaults ($state.vault.values | default dict) }}
+{{- $serverValues := get $mergedValues "server" | default dict }}
+{{- $devValues := get $serverValues "dev" | default dict }}
+{{- if ($devValues.enabled | default false) }}
+  {{- $bootstrapDefaults := dict
+    "server" (dict
+      "authDelegator" (dict "enabled" true)
+      "extraEnvironmentVars" (dict
+        "HOPS_VAULT_AUTH_MOUNT_PATH" $state.vault.auth.mountPath
+        "HOPS_VAULT_AUTH_ROLE" $state.vault.auth.role
+        "HOPS_VAULT_PATH" $state.vault.path
+        "HOPS_VAULT_ESO_NAMESPACE" $state.serviceAccount.namespace
+        "HOPS_VAULT_ESO_SERVICE_ACCOUNT" $state.serviceAccount.name
+      )
+      "postStart" (list "/bin/sh" "-ec" $vaultBootstrapScript)
+    )
+  }}
+  {{- $mergedValues = mergeOverwrite $bootstrapDefaults $mergedValues }}
+{{- end }}
+
+---
+apiVersion: helm.m.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: {{ $state.vault.releaseName }}
+  annotations:
+    {{ setResourceNameAnnotation "helm-vault" }}
+  labels: {{ $state.labels | toJson }}
+spec:
+  managementPolicies: {{ $state.managementPolicies | toJson }}
+  forProvider:
+    chart:
+      name: vault
+      repository: https://helm.releases.hashicorp.com
+      version: "0.30.0"
+    namespace: {{ $state.vault.namespace }}
+    values:
+      {{- if $state.vault.overrideAllValues }}
+      {{- toYaml $state.vault.overrideAllValues | nindent 6 }}
+      {{- else }}
+      {{- toYaml $mergedValues | nindent 6 }}
+      {{- end }}
+  rollbackLimit: 3
+  providerConfigRef:
+    name: {{ $state.helm.providerConfigRef.name }}
+    kind: {{ $state.helm.providerConfigRef.kind }}
+
+{{- end }}

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-PACKAGE ?= aws-secret-stack
+PACKAGE ?= secret-stack
 XRD_DIR := apis/secretstacks
 COMPOSITION := $(XRD_DIR)/composition.yaml
 DEFINITION := $(XRD_DIR)/definition.yaml
@@ -26,8 +26,12 @@ generate-configuration:
 EXAMPLES := \
     examples/secretstacks/minimal.yaml:: \
     examples/secretstacks/standard.yaml:: \
+    examples/secretstacks/vault.yaml:: \
+    examples/secretstacks/vault-external.yaml:: \
     examples/secretstacks/standard.yaml::examples/test/mocks/observed-resources/standard/steps/1/ \
-    examples/secretstacks/standard.yaml::examples/test/mocks/observed-resources/standard/steps/2/
+    examples/secretstacks/standard.yaml::examples/test/mocks/observed-resources/standard/steps/2/ \
+    examples/secretstacks/vault.yaml::examples/test/mocks/observed-resources/vault/steps/1/ \
+    examples/secretstacks/vault.yaml::examples/test/mocks/observed-resources/vault/steps/2/
 
 # Render all examples (parallel execution, output shown per-job when complete)
 render\:all:
@@ -38,6 +42,7 @@ render\:all:
 		observed=$${entry#*::}; \
 		outfile="$$tmpdir/$$(echo $$entry | tr '/:' '__')"; \
 		( \
+			set -euo pipefail; \
 			if [ -n "$$observed" ]; then \
 				echo "=== Rendering $$example with observed-resources $$observed ==="; \
 				up composition render --xrd=$(DEFINITION) $(COMPOSITION) $$example --observed-resources=$$observed; \
@@ -68,16 +73,17 @@ validate\:all: generate-configuration
 		observed=$${entry#*::}; \
 		outfile="$$tmpdir/$$(echo $$entry | tr '/:' '__')"; \
 		( \
+			set -euo pipefail; \
 			if [ -n "$$observed" ]; then \
 				echo "=== Validating $$example with observed-resources $$observed ==="; \
 				up composition render --xrd=$(DEFINITION) $(COMPOSITION) $$example \
 					--observed-resources=$$observed --include-full-xr --quiet | \
-					crossplane beta validate $(XRD_DIR) --error-on-missing-schemas -; \
+					crossplane resource validate $(XRD_DIR) --error-on-missing-schemas -; \
 			else \
 				echo "=== Validating $$example ==="; \
 				up composition render --xrd=$(DEFINITION) $(COMPOSITION) $$example \
 					--include-full-xr --quiet | \
-					crossplane beta validate $(XRD_DIR) --error-on-missing-schemas -; \
+					crossplane resource validate $(XRD_DIR) --error-on-missing-schemas -; \
 			fi; \
 			echo "" \
 		) > "$$outfile" 2>&1 & \
@@ -94,7 +100,7 @@ validate\:all: generate-configuration
 	exit $$failed
 
 # Shorthand aliases
-.PHONY: render validate generate-configuration
+.PHONY: render validate generate-configuration test test-review e2e
 render: ; @$(MAKE) 'render:all'
 validate: ; @$(MAKE) generate-configuration 'validate:all'
 
@@ -107,10 +113,13 @@ validate\:%: generate-configuration
 	@example="examples/secretstacks/$*.yaml"; \
 	up composition render --xrd=$(DEFINITION) $(COMPOSITION) $$example \
 		--include-full-xr --quiet | \
-		crossplane beta validate $(XRD_DIR) --error-on-missing-schemas -
+		crossplane resource validate $(XRD_DIR) --error-on-missing-schemas -
 
 test:
 	up test run $(RENDER_TESTS)
+
+test-review:
+	./tests/review-findings.sh
 
 e2e:
 	up test run $(E2E_TESTS) --e2e

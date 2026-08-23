@@ -1,6 +1,13 @@
 # code: language=yaml
 #
-# Compute status values from observed state
+# Compute status + observed slices from composed resources.
+#
+# Capture both:
+#   - ready  → status UX + Usage gates only
+#   - exists → sticky render gates for dependents (never use ready for that)
+#
+# Helm sticky signal: atProvider.revision > 0 (installed at least once).
+# See xrd-authoring references/observed-state-pattern.md
 #
 
 # ==============================================================================
@@ -8,55 +15,100 @@
 # ==============================================================================
 {{- $observed := $.observed.resources | default dict }}
 
-# Check if helm-external-secrets is ready
+# --- helm-external-secrets ---
 {{- $helmExternalSecretsObs := get $observed "helm-external-secrets" | default dict }}
 {{- $helmExternalSecretsResource := $helmExternalSecretsObs.resource | default dict }}
 {{- $helmExternalSecretsStatus := $helmExternalSecretsResource.status | default dict }}
-{{- $helmExternalSecretsConditions := $helmExternalSecretsStatus.conditions | default list }}
+{{- $helmExternalSecretsAt := $helmExternalSecretsStatus.atProvider | default dict }}
 {{- $helmExternalSecretsReady := false }}
-{{- range $cond := $helmExternalSecretsConditions }}
+{{- range $cond := ($helmExternalSecretsStatus.conditions | default list) }}
   {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
     {{- $helmExternalSecretsReady = true }}
   {{- end }}
 {{- end }}
+{{- $helmExternalSecretsRevision := $helmExternalSecretsAt.revision | default 0 | int }}
+{{- $helmExternalSecretsExists := gt $helmExternalSecretsRevision 0 }}
 
-# Check if pod-identity is ready
+# --- helm-vault (optional) ---
+{{- $helmVaultObs := get $observed "helm-vault" | default dict }}
+{{- $helmVaultResource := $helmVaultObs.resource | default dict }}
+{{- $helmVaultStatus := $helmVaultResource.status | default dict }}
+{{- $helmVaultAt := $helmVaultStatus.atProvider | default dict }}
+{{- $helmVaultReady := false }}
+{{- range $cond := ($helmVaultStatus.conditions | default list) }}
+  {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
+    {{- $helmVaultReady = true }}
+  {{- end }}
+{{- end }}
+{{- $helmVaultRevision := $helmVaultAt.revision | default 0 | int }}
+{{- $helmVaultExists := gt $helmVaultRevision 0 }}
+
+# --- pod-identity ---
 {{- $podIdentityObs := get $observed "pod-identity" | default dict }}
 {{- $podIdentityResource := $podIdentityObs.resource | default dict }}
 {{- $podIdentityStatus := $podIdentityResource.status | default dict }}
-{{- $podIdentityConditions := $podIdentityStatus.conditions | default list }}
 {{- $podIdentityReady := false }}
-{{- range $cond := $podIdentityConditions }}
+{{- range $cond := ($podIdentityStatus.conditions | default list) }}
   {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
     {{- $podIdentityReady = true }}
   {{- end }}
 {{- end }}
+# Nested XR: treat observed entry with Ready OR any status payload as exists for
+# Usage pairing only; PodIdentity is not a render gate for SecretStore on AWS
+# (store only needs ESO CRDs). Keep ready for Usage.
+{{- $podIdentityExists := or $podIdentityReady (not (empty $podIdentityResource)) }}
 
-# Check if secret-store is ready
+# --- secret-store ---
 {{- $secretStoreObs := get $observed "secret-store" | default dict }}
 {{- $secretStoreResource := $secretStoreObs.resource | default dict }}
 {{- $secretStoreStatus := $secretStoreResource.status | default dict }}
-{{- $secretStoreConditions := $secretStoreStatus.conditions | default list }}
 {{- $secretStoreReady := false }}
-{{- range $cond := $secretStoreConditions }}
+{{- range $cond := ($secretStoreStatus.conditions | default list) }}
   {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
     {{- $secretStoreReady = true }}
   {{- end }}
 {{- end }}
+{{- $secretStoreExists := not (empty $secretStoreResource) }}
 
 # ==============================================================================
 # Compute status output
 # ==============================================================================
 
-# Ready state determined by function-auto-ready
-{{- $ready := false }}
-
 {{- $state = set $state "observed" (dict
-  "helmExternalSecrets" (dict "ready" $helmExternalSecretsReady)
-  "podIdentity" (dict "ready" $podIdentityReady)
-  "secretStore" (dict "ready" $secretStoreReady)
+  "helmExternalSecrets" (dict
+    "ready" $helmExternalSecretsReady
+    "exists" $helmExternalSecretsExists
+    "revision" $helmExternalSecretsRevision
+  )
+  "helmVault" (dict
+    "ready" $helmVaultReady
+    "exists" $helmVaultExists
+    "revision" $helmVaultRevision
+  )
+  "podIdentity" (dict
+    "ready" $podIdentityReady
+    "exists" $podIdentityExists
+  )
+  "secretStore" (dict
+    "ready" $secretStoreReady
+    "exists" $secretStoreExists
+  )
 ) }}
 
-{{- $state = set $state "status" (dict
-  "ready" $ready
-) }}
+{{- $status := dict
+  "backend" $state.backend
+  "secretStore" (dict
+    "name" $state.secretStore.name
+    "scope" $state.secretStore.scope
+    "ready" $secretStoreReady
+  )
+}}
+{{- if $state.vault.install }}
+  {{- $status = merge $status (dict "vault" (dict
+    "releaseName" $state.vault.releaseName
+    "namespace" $state.vault.namespace
+    "ready" $helmVaultReady
+  )) }}
+{{- end }}
+
+{{- $state = set $state "status" $status }}

@@ -1,15 +1,15 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: secretstacks.aws.hops.ops.com.ai
+  name: secretstacks.hops.ops.com.ai
 spec:
   compositeTypeRef:
-    apiVersion: aws.hops.ops.com.ai/v1alpha1
+    apiVersion: hops.ops.com.ai/v1alpha1
     kind: SecretStack
   mode: Pipeline
   pipeline:
   - functionRef:
-      name: hops-ops-aws-secret-stackrender
+      name: hops-ops-secret-stackrender
     step: render
   - functionRef:
       name: crossplane-contrib-function-auto-ready
