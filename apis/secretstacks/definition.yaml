@@ -216,9 +216,6 @@ spec:
             description: SecretStackStatus defines the observed state.
             type: object
             properties:
-              ready:
-                description: Overall readiness.
-                type: boolean
               backend:
                 description: Active secrets backend.
                 type: string

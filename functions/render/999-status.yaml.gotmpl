@@ -9,7 +9,6 @@
 apiVersion: {{ $xr.apiVersion }}
 kind: {{ $xr.kind }}
 status:
-  ready: {{ $s.ready }}
   backend: {{ $s.backend }}
   secretStore:
     name: {{ $s.secretStore.name }}

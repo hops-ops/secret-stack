@@ -70,40 +70,9 @@
 {{- end }}
 {{- $secretStoreExists := not (empty $secretStoreResource) }}
 
-# --- deletion-order Usages (optional) ---
-{{- $usageReady := dict }}
-{{- range $usageName := (list "usage-secret-store-helm" "usage-secret-store-vault" "usage-pod-identity") }}
-  {{- $usageObs := get $observed $usageName | default dict }}
-  {{- $usageResource := $usageObs.resource | default dict }}
-  {{- $usageStatus := $usageResource.status | default dict }}
-  {{- $isReady := false }}
-  {{- range $cond := ($usageStatus.conditions | default list) }}
-    {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
-      {{- $isReady = true }}
-    {{- end }}
-  {{- end }}
-  {{- $usageReady = set $usageReady $usageName $isReady }}
-{{- end }}
-
 # ==============================================================================
 # Compute status output
 # ==============================================================================
-
-# Mirror function-auto-ready for resources applicable to this configuration.
-# Optional resources that do not render must not hold readiness false.
-{{- $ready := $helmExternalSecretsReady }}
-{{- if $state.aws.enabled }}
-  {{- $ready = and $ready $podIdentityReady (get $usageReady "usage-pod-identity") }}
-{{- end }}
-{{- if $state.vault.install }}
-  {{- $ready = and $ready $helmVaultReady }}
-{{- end }}
-{{- if $state.secretStore.enabled }}
-  {{- $ready = and $ready $secretStoreReady (get $usageReady "usage-secret-store-helm") }}
-  {{- if $state.vault.install }}
-    {{- $ready = and $ready (get $usageReady "usage-secret-store-vault") }}
-  {{- end }}
-{{- end }}
 
 {{- $state = set $state "observed" (dict
   "helmExternalSecrets" (dict
@@ -124,15 +93,9 @@
     "ready" $secretStoreReady
     "exists" $secretStoreExists
   )
-  "usages" (dict
-    "secretStoreHelmReady" (get $usageReady "usage-secret-store-helm")
-    "secretStoreVaultReady" (get $usageReady "usage-secret-store-vault")
-    "podIdentityReady" (get $usageReady "usage-pod-identity")
-  )
 ) }}
 
 {{- $status := dict
-  "ready" $ready
   "backend" $state.backend
   "secretStore" (dict
     "name" $state.secretStore.name
