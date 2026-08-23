@@ -31,4 +31,4 @@ spec:
     Platform SecretStack (hops.ops.com.ai): External Secrets Operator plus a
     backend-specific SecretStore (AWS Secrets Manager or Vault).
   repository: ghcr.io/hops-ops/secret-stack
-  source: github.com/hops-ops/aws-secret-stack
+  source: github.com/hops-ops/secret-stack
