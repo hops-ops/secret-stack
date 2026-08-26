@@ -98,7 +98,7 @@ jobs:
       - test
       - review-findings
       - e2e
-    uses: unbounded-tech/workflow-vnext-tag/.github/workflows/workflow.yaml@v1.21.3
+    uses: unbounded-tech/workflow-vnext-tag/.github/workflows/workflow.yaml@v1.22.2
     secrets:
       DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
     with:
