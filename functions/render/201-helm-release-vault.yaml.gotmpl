@@ -98,6 +98,7 @@ spec:
     chart:
       name: vault
       repository: https://helm.releases.hashicorp.com
+      # renovate: datasource=helm depName=vault registryUrl=https://helm.releases.hashicorp.com
       version: "0.30.0"
     namespace: {{ $state.vault.namespace }}
     values:
