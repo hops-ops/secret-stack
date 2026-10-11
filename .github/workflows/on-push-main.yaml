@@ -54,7 +54,7 @@ jobs:
         with:
           skip-login: true
       - name: Build project
-        uses: upbound/action-up-project@v1.1.2
+        uses: upbound/action-up-project@v1.2.0
         with:
           skip-login-check: true
       - name: Install Crossplane CLI
